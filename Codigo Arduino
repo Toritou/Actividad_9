@@ -1,0 +1,90 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <time.h>
+
+const char* ssid = "WIFI-DCI";
+const char* password = "DComInf_2K24";
+
+const char* serverName = "http://54.236.89.141:8080/dato/add"; 
+
+¿const char* nombreNodo = "toro";
+
+#define LED_GREEN 12
+
+unsigned long previousMillis = 0;
+const long interval = 1000; // 1 segundo
+
+void setup() {
+  pinMode(LED_BLUE, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConectado al WiFi");
+
+  configTime(0, 0, "pool.ntp.org");
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Error al obtener la hora");
+    return;
+  }
+  Serial.println("Hora sincronizada con NTP");
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+    int valorAleatorio = random(1, 61);
+
+    digitalWrite(LED_GREEN, HIGH);
+
+    time_t now;
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      time(&now);
+    }
+
+    enviarDatos(now, valorAleatorio, nombreNodo);
+    
+    digitalWrite(LED_GREEN, LOW);
+  }
+}
+
+void enviarDatos(time_t tiempoUnix, int medicion, const char* nodo) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(serverName);
+    http.addHeader("Content-Type", "application/json");
+
+    String postData = String("{\"time\":") + tiempoUnix +
+                      String(",\"medicion\":") + medicion +
+                      String(",\"nombrenodo\":\"") + nodo + String("\"}");
+
+    Serial.println("Enviando los siguientes datos en formato JSON:");
+    Serial.println(postData);  // Mostrar el JSON completo en el monitor serie
+
+    int httpResponseCode = http.POST(postData);
+
+    digitalWrite(LED_GREEN, HIGH);
+    delay(1000);
+    digitalWrite(LED_GREEN, LOW);
+
+    if (httpResponseCode > 0) {
+      String respuesta = http.getString();
+      Serial.println("Datos enviados exitosamente: " + respuesta);
+    } else {
+      Serial.println("Error en el envío: " + String(httpResponseCode));
+    }
+
+    http.end();
+  } else {
+    Serial.println("No conectado al WiFi");
+  }
+}
