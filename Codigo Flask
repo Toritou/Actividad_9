@@ -1,0 +1,44 @@
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+datos = []
+
+# Ruta para recibir los datos del ESP32
+@app.route('/dato/add', methods=['POST'])
+def recibir_datos():
+    data = request.get_json()
+
+    if not data or 'time' not in data or 'medicion' not in data or 'nombrenodo' not in data:
+        return jsonify({'error': 'Datos incompletos'}), 400
+
+    nuevo_dato = {
+        'time': data['time'],
+        'medicion': data['medicion'],
+        'nombrenodo': data['nombrenodo']
+    }
+    datos.append(nuevo_dato)
+
+    print(f"Datos recibidos: {nuevo_dato}")
+
+    return jsonify({'mensaje': 'Datos recibidos y almacenados en memoria'}), 201
+
+@app.route('/datos', methods=['GET'])
+def obtener_datos():
+    return jsonify(datos), 200
+
+@app.route('/datos/<nombrenodo>', methods=['GET'])
+def obtener_datos_nodo(nombrenodo):
+    datos_nodo = [dato for dato in datos if dato['nombrenodo'] == nombrenodo]
+    if not datos_nodo:
+        return jsonify({'error': 'No se encontraron datos para el nodo'}), 404
+    return jsonify(datos_nodo), 200
+
+@app.route('/datos', methods=['DELETE'])
+def eliminar_todos_datos():
+    cantidad_eliminada = len(datos)
+    datos.clear()
+    return jsonify({'mensaje': 'Todos los datos han sido eliminados', 'cantidad_eliminada': cantidad_eliminada}), 200
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=8080, debug=True)
